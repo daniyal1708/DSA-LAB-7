@@ -1,0 +1,186 @@
+#include "Polynomial.h"
+#include <fstream>
+
+Term::Term(double c, int d) {
+    coeff = c;
+    degree = d;
+    next = nullptr;
+}
+
+Polynomial::Polynomial() {
+    head = nullptr;
+}
+
+Polynomial::~Polynomial() {
+    Term* curr = head;
+    while (curr) {
+        Term* temp = curr;
+        curr = curr->next;
+        delete temp;
+    }
+}
+
+double Polynomial::power(double base, int exp) const {
+    double result = 1;
+    for (int i = 0; i < exp; i++)
+        result *= base;
+    return result;
+}
+
+void Polynomial::insertTerm(double coeff, int degree) {
+    if (coeff == 0) return;
+
+    if (head == nullptr || degree < head->degree) {
+        Term* newTerm = new Term(coeff, degree);
+        newTerm->next = head;
+        head = newTerm;
+        return;
+    }
+
+    Term* current = head;
+    Term* previous = nullptr;
+
+    while (current != nullptr && current->degree < degree) {
+        previous = current;
+        current = current->next;
+    }
+
+    if (current != nullptr && current->degree == degree) {
+        current->coeff += coeff;
+
+        if (current->coeff == 0) {
+            if (previous != nullptr)
+                previous->next = current->next;
+            else
+                head = current->next;
+
+            delete current;
+        }
+    }
+    else {
+        Term* newTerm = new Term(coeff, degree);
+        newTerm->next = current;
+
+        if (previous != nullptr)
+            previous->next = newTerm;
+        else
+            head = newTerm;
+    }
+}
+
+bool Polynomial::readFromFile(const string& filename) {
+    ifstream fin(filename);
+    if (!fin) return false;
+
+    Term* curr = head;
+    while (curr) {
+        Term* temp = curr;
+        curr = curr->next;
+        delete temp;
+    }
+    head = nullptr;
+
+    double coeff;
+    int degree;
+
+    while (fin >> coeff >> degree)
+        insertTerm(coeff, degree);
+
+    fin.close();
+    return true;
+}
+
+void Polynomial::print() const {
+    if (!head) {
+        cout << "0";
+        return;
+    }
+
+    Term* curr = head;
+    bool first = true;
+
+    while (curr) {
+        if (!first) {
+            if (curr->coeff >= 0)
+                cout << " + ";
+            else
+                cout << " - ";
+        }
+        else if (curr->coeff < 0) {
+            cout << "-";
+        }
+
+        double absCoeff = (curr->coeff < 0) ? -curr->coeff : curr->coeff;
+
+        if (curr->degree == 0)
+            cout << absCoeff;
+        else if (curr->degree == 1)
+            cout << absCoeff << "x";
+        else
+            cout << absCoeff << "x^" << curr->degree;
+
+        first = false;
+        curr = curr->next;
+    }
+}
+
+Polynomial Polynomial::add(const Polynomial& other) const {
+    Polynomial result;
+
+    Term* t1 = head;
+    Term* t2 = other.head;
+
+    while (t1 && t2) {
+        if (t1->degree < t2->degree) {
+            result.insertTerm(t1->coeff, t1->degree);
+            t1 = t1->next;
+        }
+        else if (t2->degree < t1->degree) {
+            result.insertTerm(t2->coeff, t2->degree);
+            t2 = t2->next;
+        }
+        else {
+            double sumCoeff = t1->coeff + t2->coeff;
+            if (sumCoeff != 0)
+                result.insertTerm(sumCoeff, t1->degree);
+
+            t1 = t1->next;
+            t2 = t2->next;
+        }
+    }
+
+    while (t1) {
+        result.insertTerm(t1->coeff, t1->degree);
+        t1 = t1->next;
+    }
+
+    while (t2) {
+        result.insertTerm(t2->coeff, t2->degree);
+        t2 = t2->next;
+    }
+
+    return result;
+}
+
+Polynomial Polynomial::multiply(const Polynomial& other) const {
+    Polynomial result;
+
+    for (Term* t1 = head; t1; t1 = t1->next) {
+        for (Term* t2 = other.head; t2; t2 = t2->next) {
+            double c = t1->coeff * t2->coeff;
+            int d = t1->degree + t2->degree;
+            result.insertTerm(c, d);
+        }
+    }
+
+    return result;
+}
+
+double Polynomial::evaluate(double x) const {
+    double sum = 0;
+
+    for (Term* curr = head; curr; curr = curr->next)
+        sum += curr->coeff * power(x, curr->degree);
+
+    return sum;
+}
